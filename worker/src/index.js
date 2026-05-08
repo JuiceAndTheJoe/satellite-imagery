@@ -24,15 +24,14 @@
 //     calls with increment=N, so the running total tracks the truth on
 //     average while writes drop ~Nx.
 
-// Replace OSC-HOSTNAME with the URL OSC gives you after deployment.
 const ALLOWED_ORIGINS = new Set([
-  'https://OSC-HOSTNAME',
+  'https://team2-satelliteimagery.minio-minio.auto.prod.osaas.io',
   'http://localhost:8080',
   'http://127.0.0.1:8080',
 ]);
 // Sent upstream to Mapbox so URL-restricted tokens still accept the call.
 // Must match a hostname on the token's allowlist in the Mapbox dashboard.
-const REFERER = 'https://OSC-HOSTNAME/';
+const REFERER = 'https://team2-satelliteimagery.minio-minio.auto.prod.osaas.io/';
 
 // Static-image endpoint. Mapbox Static Images free tier is 50k/month.
 const STATIC_BASE       = 'https://api.mapbox.com/styles/v1/mapbox/satellite-v9/static';

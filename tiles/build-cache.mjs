@@ -24,7 +24,7 @@ const SPACE_JS = path.join(REPO_ROOT, 'space.js');
 const WORKER_BASE = 'https://satellite-imagery-proxy.esvela02.workers.dev/tile';
 // Must match REFERER in worker/src/index.js — the worker spoofs this header
 // upstream to Mapbox so URL-restricted tokens still work.
-const REFERER = 'https://OSC-HOSTNAME/';
+const REFERER = 'https://team2-satelliteimagery.minio-minio.auto.prod.osaas.io/';
 
 // Zoom levels. At altitude 0.06 the slippy-tile engine asks for tiles
 // around z13–14 over the immediate vicinity of the camera target. A 3×3
