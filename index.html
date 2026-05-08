@@ -331,6 +331,13 @@
       <span>DATA</span>
     </button>
 
+    <!--
+      Cloudflare Turnstile widget mount point. The script tag and render
+      call are added by space.js only when TURNSTILE_SITEKEY is set; the
+      div stays empty (and invisible) otherwise.
+    -->
+    <div id="turnstile-widget" aria-hidden="true" style="position:absolute;left:-9999px;top:0;width:0;height:0;overflow:hidden"></div>
+
     <script src="space.js"></script>
   </body>
 </html>

@@ -8,6 +8,15 @@
 // ---------------------------------------------------------------------------
 const PROXY_BASE = 'https://satellite-imagery-proxy.esvela02.workers.dev';
 
+// Cloudflare Turnstile sitekey (public). Paste the sitekey from your
+// Turnstile site here to gate CAPTURE behind a (usually invisible) bot
+// challenge. Leave as the empty string to disable the gate. The matching
+// secret key must be set as TURNSTILE_SECRET on the Worker:
+//   wrangler secret put TURNSTILE_SECRET
+// Use widget mode "Invisible" in the Cloudflare dashboard so most users
+// never see a checkbox.
+const TURNSTILE_SITEKEY = '';
+
 const DEFAULT_LAT = 59.349800;
 const DEFAULT_LON = 18.070700;
 const DEFAULT_RADIUS = 100;
@@ -387,15 +396,79 @@ function estimateZoomForRadiusKm(km) {
 
 function clampZoom(z) { return Math.min(20, Math.max(4, Math.round(z))); }
 
-function buildUrl(lat, lon, radiusKm) {
+function buildUrl(lat, lon, radiusKm, cfToken) {
   const zoom = clampZoom(estimateZoomForRadiusKm(Math.max(radiusKm, 0.5)));
   const params = new URLSearchParams({
     lat: lat.toFixed(6),
     lon: lon.toFixed(6),
     zoom: String(zoom),
   });
+  if (cfToken) params.set('cf', cfToken);
   return `${PROXY_BASE}/?${params}`;
 }
+
+// ---------------------------------------------------------------------------
+// Cloudflare Turnstile (optional CAPTURE gate)
+// ---------------------------------------------------------------------------
+// Loads the Turnstile script and renders an invisible widget. The widget
+// runs the bot challenge and hands us a single-use token; we attach it to
+// the next CAPTURE call as `?cf=…`. The Worker validates with siteverify.
+// All gracefully no-ops when TURNSTILE_SITEKEY is empty.
+let turnstileWidgetId = null;
+let turnstileToken = null;
+
+function initTurnstile() {
+  if (!TURNSTILE_SITEKEY) return;
+  const s = document.createElement('script');
+  s.src = 'https://challenges.cloudflare.com/turnstile/v0/api.js?onload=__turnstileLoaded&render=explicit';
+  s.async = true;
+  s.defer = true;
+  document.head.appendChild(s);
+  window.__turnstileLoaded = () => {
+    const el = document.getElementById('turnstile-widget');
+    if (!el || !window.turnstile) return;
+    turnstileWidgetId = window.turnstile.render(el, {
+      sitekey: TURNSTILE_SITEKEY,
+      size: 'invisible',
+      callback: (tok) => { turnstileToken = tok; },
+      'error-callback': () => { turnstileToken = null; },
+      'expired-callback': () => { turnstileToken = null; },
+    });
+  };
+}
+
+// Wait for a fresh token (single-use; reset after consumption so the next
+// CAPTURE gets a new one). Resolves null if the widget isn't ready within
+// 5s, in which case the caller treats it as a verification failure.
+function getTurnstileToken() {
+  if (!TURNSTILE_SITEKEY || !window.turnstile || turnstileWidgetId === null) {
+    return Promise.resolve(null);
+  }
+  if (turnstileToken) {
+    const t = turnstileToken;
+    turnstileToken = null;
+    try { window.turnstile.reset(turnstileWidgetId); } catch {}
+    return Promise.resolve(t);
+  }
+  return new Promise((resolve) => {
+    const start = Date.now();
+    const tick = setInterval(() => {
+      if (turnstileToken) {
+        clearInterval(tick);
+        const t = turnstileToken;
+        turnstileToken = null;
+        try { window.turnstile.reset(turnstileWidgetId); } catch {}
+        resolve(t);
+      } else if (Date.now() - start > 5000) {
+        clearInterval(tick);
+        resolve(null);
+      }
+    }, 100);
+    try { window.turnstile.execute(turnstileWidgetId); } catch {}
+  });
+}
+
+initTurnstile();
 
 // ---------------------------------------------------------------------------
 // Metadata math
@@ -963,7 +1036,7 @@ if (
 // ---------------------------------------------------------------------------
 // Capture
 // ---------------------------------------------------------------------------
-function capture() {
+async function capture() {
   const lat    = parseFloat(latInput.value);
   const lon    = parseFloat(lonInput.value);
   const radius = parseFloat(radiusInput.value);
@@ -981,8 +1054,21 @@ function capture() {
     return;
   }
 
+  // Captcha gate (no-op when TURNSTILE_SITEKEY is unset).
+  let cfToken = null;
+  if (TURNSTILE_SITEKEY) {
+    setStatus('Verifying request…', 'loading');
+    captureBtn.disabled = true;
+    cfToken = await getTurnstileToken();
+    if (!cfToken) {
+      setStatus('Security check failed. Please try again.', 'error');
+      captureBtn.disabled = false;
+      return;
+    }
+  }
+
   const zoom = clampZoom(estimateZoomForRadiusKm(Math.max(radius, 0.5)));
-  const url  = buildUrl(lat, lon, radius);
+  const url  = buildUrl(lat, lon, radius, cfToken);
 
   setStatus('Acquiring satellite imagery…', 'loading');
   globeStatus.textContent = 'CAPTURING…';
