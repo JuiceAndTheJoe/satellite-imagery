@@ -6,8 +6,7 @@
 // ---------------------------------------------------------------------------
 // Constants
 // ---------------------------------------------------------------------------
-// Set this after `wrangler deploy` prints the new Worker URL.
-const PROXY_BASE = 'https://satellite-imagery-proxy.WORKERS-SUBDOMAIN.workers.dev';
+const PROXY_BASE = 'https://satellite-imagery-proxy.esvela02.workers.dev';
 
 const DEFAULT_LAT = 59.349800;
 const DEFAULT_LON = 18.070700;

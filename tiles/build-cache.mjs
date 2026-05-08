@@ -21,8 +21,7 @@ const TILES_DIR = path.join(REPO_ROOT, 'tiles');
 const MANIFEST_PATH = path.join(TILES_DIR, 'manifest.json');
 const SPACE_JS = path.join(REPO_ROOT, 'space.js');
 
-// Set this to your deployed worker URL (printed by `wrangler deploy`).
-const WORKER_BASE = 'https://satellite-imagery-proxy.WORKERS-SUBDOMAIN.workers.dev/tile';
+const WORKER_BASE = 'https://satellite-imagery-proxy.esvela02.workers.dev/tile';
 // Must match REFERER in worker/src/index.js — the worker spoofs this header
 // upstream to Mapbox so URL-restricted tokens still work.
 const REFERER = 'https://OSC-HOSTNAME/';

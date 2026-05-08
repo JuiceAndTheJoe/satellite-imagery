@@ -5,7 +5,7 @@ compatibility_date = "2026-04-01"
 # Replace the placeholder id below with the value printed by:
 #   wrangler kv namespace create QUOTA
 kv_namespaces = [
-  { binding = "QUOTA", id = "REPLACE_WITH_NEW_KV_NAMESPACE_ID" }
+  { binding = "QUOTA", id = "c4ea31a02ef140f8a8766bb5b9d953aa" }
 ]
 
 # MAPBOX_TOKEN is set as a secret, not in this file:
