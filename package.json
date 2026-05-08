@@ -1,0 +1,13 @@
+{
+  "name": "satellite-imagery",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "3D globe + Mapbox-backed satellite snapshot viewer.",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}
