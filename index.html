@@ -1,0 +1,336 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Satellite Imagery</title>
+    <link rel="stylesheet" href="space.css" />
+    <link
+      rel="stylesheet"
+      href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css"
+    />
+    <!-- Globe.gl: WebGL 3D globe (~340 KB gzipped, ships its own three.js) -->
+    <script src="https://unpkg.com/globe.gl"></script>
+  </head>
+  <body>
+    <!-- Full-viewport 3D globe is the visual centerpiece. -->
+    <div id="globe-container" class="globe-section"></div>
+
+    <!-- HUD overlays float in viewport corners over the globe. -->
+    <div class="globe-overlay-tl">
+      <span class="hud-label">TARGET</span>
+      <span id="globe-coords-readout" class="hud-value">--.------°, --.------°</span>
+    </div>
+    <div class="globe-overlay-bl">
+      <span class="hud-label">STATUS</span>
+      <span id="globe-status" class="hud-value">Awaiting target</span>
+    </div>
+
+    <main class="space-container">
+      <header class="space-header">
+        <div class="header-badge">MISSION CONTROL</div>
+        <h1 class="title-glow">SATELLITE IMAGERY</h1>
+        <p class="subtitle">
+          Spin the globe, pick a target, pull a snapshot from low orbit.
+        </p>
+        <div class="globe-hint">
+          <i class="fas fa-mouse-pointer"></i>
+          Tap a city or anywhere on Earth to lock target, then hit CAPTURE
+        </div>
+      </header>
+
+      <!-- Manual coords + radius + presets + capture -->
+      <section class="controls">
+        <button
+          type="button"
+          id="controls-close"
+          class="panel-close"
+          aria-label="Hide controls panel"
+          title="Hide controls"
+        >×</button>
+        <div class="controls-grid">
+          <div class="field">
+            <label for="lat">Latitude</label>
+            <input
+              id="lat"
+              type="number"
+              step="any"
+              min="-90"
+              max="90"
+              placeholder="59.349800"
+              value="59.349800"
+            />
+          </div>
+
+          <div class="field">
+            <label for="lon">Longitude</label>
+            <input
+              id="lon"
+              type="number"
+              step="any"
+              min="-180"
+              max="180"
+              placeholder="18.070700"
+              value="18.070700"
+            />
+          </div>
+
+          <div class="field field-wide">
+            <label for="radius">
+              Radius: <span id="radius-value">100</span> km
+            </label>
+            <input
+              id="radius"
+              type="range"
+              min="0.5"
+              max="1500"
+              step="0.5"
+              value="100"
+            />
+          </div>
+
+          <div class="presets">
+            <span class="presets-label">Presets:</span>
+            <button
+              type="button"
+              class="preset-btn"
+              data-lat="59.349800"
+              data-lon="18.070700"
+              data-radius="2"
+            >
+              KTH
+            </button>
+            <button
+              type="button"
+              class="preset-btn"
+              data-lat="59.898300"
+              data-lon="17.593700"
+              data-radius="3"
+            >
+              Uppsala Ärna
+            </button>
+            <button
+              type="button"
+              class="preset-btn"
+              data-lat="40.689200"
+              data-lon="-74.044500"
+              data-radius="2"
+            >
+              Liberty Island
+            </button>
+            <button
+              type="button"
+              class="preset-btn"
+              data-lat="-22.951900"
+              data-lon="-43.210500"
+              data-radius="3"
+            >
+              Cristo Redentor
+            </button>
+            <button
+              type="button"
+              class="preset-btn preset-random"
+              data-random="true"
+            >
+              <i class="fas fa-dice"></i> Random
+            </button>
+          </div>
+
+          <div class="actions">
+            <button type="button" id="capture-btn" class="capture-btn">
+              <i class="fas fa-satellite"></i>
+              <span>CAPTURE</span>
+            </button>
+            <a id="download-link" class="download-link" hidden>
+              <i class="fas fa-download"></i> Download JPEG
+            </a>
+            <button
+              type="button"
+              id="share-btn"
+              class="share-btn"
+              title="Copy a link that replays this capture"
+              hidden
+            >
+              <i class="fas fa-link"></i>
+              <span class="share-btn-label">Share</span>
+            </button>
+          </div>
+        </div>
+      </section>
+
+      <!--
+        Result section. Image on one side, metadata card on the other.
+        JS shows the image and fills metadata after a successful capture.
+      -->
+      <section class="result">
+        <button
+          type="button"
+          id="result-close"
+          class="panel-close"
+          aria-label="Hide data panel"
+          title="Hide data panel"
+        >×</button>
+        <div id="status" class="status" role="status" aria-live="polite">
+          Standing by. Pick a target and hit CAPTURE.
+        </div>
+
+        <button
+          type="button"
+          id="metadata-reopen"
+          class="metadata-toggle-tab"
+          aria-label="Show data card"
+          hidden
+        >
+          <i class="fas fa-table-list" aria-hidden="true"></i>
+          <span>Show data card</span>
+        </button>
+
+        <div class="capture-display">
+          <div class="image-frame">
+            <div class="scanline" aria-hidden="true"></div>
+            <div class="corner-marker tl"></div>
+            <div class="corner-marker tr"></div>
+            <div class="corner-marker bl"></div>
+            <div class="corner-marker br"></div>
+            <img id="result-img" alt="Satellite capture" hidden />
+          </div>
+
+          <aside id="metadata-card" class="metadata-card" hidden>
+            <div class="metadata-header">
+              <span class="metadata-title">CAPTURE DATA</span>
+              <div class="metadata-header-right">
+                <span class="metadata-led"></span>
+                <button
+                  type="button"
+                  id="metadata-close"
+                  class="panel-close metadata-close"
+                  aria-label="Hide data card"
+                  title="Hide data card"
+                >×</button>
+              </div>
+            </div>
+            <dl class="metadata-list">
+              <div class="metadata-row">
+                <dt>Coordinates</dt>
+                <dd id="meta-coords">—</dd>
+              </div>
+              <div class="metadata-row">
+                <dt>Zoom level</dt>
+                <dd id="meta-zoom">—</dd>
+              </div>
+              <div class="metadata-row">
+                <dt>
+                  Likely source
+                  <button
+                    type="button"
+                    id="source-info-btn"
+                    class="info-btn"
+                    aria-label="Why does this say 'likely'?"
+                    title="Why does this say 'likely'?"
+                  >?</button>
+                </dt>
+                <dd id="meta-source">—</dd>
+              </div>
+              <div class="metadata-row">
+                <dt>Ground sample</dt>
+                <dd id="meta-resolution">—</dd>
+              </div>
+              <div class="metadata-row">
+                <dt>Side length</dt>
+                <dd id="meta-side">—</dd>
+              </div>
+              <div class="metadata-row">
+                <dt>Area covered</dt>
+                <dd id="meta-area">—</dd>
+              </div>
+              <div class="metadata-row">
+                <dt>Sun elevation</dt>
+                <dd id="meta-sun">—</dd>
+              </div>
+              <div class="metadata-row">
+                <dt>Local solar time</dt>
+                <dd id="meta-solar-time">—</dd>
+              </div>
+              <div class="metadata-row">
+                <dt>Antipode</dt>
+                <dd id="meta-antipode">—</dd>
+              </div>
+              <div class="metadata-row">
+                <dt>Captured</dt>
+                <dd id="meta-time">—</dd>
+              </div>
+            </dl>
+          </aside>
+        </div>
+
+        <div id="source-info-popup" class="info-popup" hidden>
+          <button
+            type="button"
+            id="source-info-close"
+            class="info-popup-close"
+            aria-label="Close"
+          >×</button>
+          <h4>About 'Likely source'</h4>
+          <p id="source-info-body"></p>
+        </div>
+
+        <!--
+          Recent-captures strip. Persisted in localStorage as small JPEG
+          thumbnails. Clicking one restores the target and re-issues the
+          same image URL — typically served from the browser cache so it
+          doesn't burn through the Worker's monthly quota.
+        -->
+        <section id="capture-history" class="capture-history" hidden></section>
+
+      </section>
+
+      <footer class="space-footer">
+        <p>
+          Imagery ©
+          <a href="https://www.mapbox.com/about/maps/" target="_blank" rel="noopener">Mapbox</a>
+          ©
+          <a href="https://www.openstreetmap.org/about/" target="_blank" rel="noopener">OpenStreetMap</a>.
+          Globe rendering via
+          <a href="https://globe.gl" target="_blank" rel="noopener">globe.gl</a>.
+        </p>
+      </footer>
+    </main>
+
+    <!--
+      Mobile-only docked toolbar at the bottom-right. JS relocates the
+      existing #download-link, #share-btn, and #controls-reopen into
+      this flex row on phone-width viewports so the user can act on a
+      capture (save / share) and re-open the controls panel from the
+      same horizontal band, all standalone pills. Empty on desktop —
+      hidden via :empty + the buttons stay in their default positions.
+    -->
+    <div class="result-actions"></div>
+
+    <!--
+      Reopen pills for collapsed panels. Mirror the panel positions so the
+      pill appears in the same corner the panel vacated.
+    -->
+    <button
+      type="button"
+      id="controls-reopen"
+      class="panel-reopen panel-reopen-controls"
+      aria-label="Show controls panel"
+      hidden
+    >
+      <i class="fas fa-terminal" aria-hidden="true"></i>
+      <span>INPUT</span>
+    </button>
+    <button
+      type="button"
+      id="result-reopen"
+      class="panel-reopen panel-reopen-result"
+      aria-label="Show data panel"
+      hidden
+    >
+      <i class="fas fa-satellite-dish" aria-hidden="true"></i>
+      <span>DATA</span>
+    </button>
+
+    <script src="space.js"></script>
+  </body>
+</html>

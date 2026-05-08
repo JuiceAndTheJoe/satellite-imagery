@@ -1,0 +1,1422 @@
+/* ============================================================
+   SATELLITE IMAGERY — space.css
+   80s Phosphor Console — green primary, ice-blue accent
+   Palette: ink-black #02100a, deep-green #0a1e14,
+            phosphor-green #39ff14 (primary),
+            soft-green #39ff8a (instrument readouts),
+            ice-blue #5fcfff (contrast / hover / target / errors),
+            amber #f0c33c (loading)
+   Fonts: Tahoma (body), 'Consolas'/'Courier New' (HUD readouts)
+   ============================================================ */
+
+/* ── 1. RESET & BASE ──────────────────────────────────────── */
+
+*, *::before, *::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html, body {
+  min-height: 100%;
+  font-family: Tahoma, sans-serif;
+  color: #d0f8d4;
+  background: #02100a;
+  overflow-x: hidden;
+}
+
+a {
+  color: rgb(57,255,20);
+  text-decoration: none;
+  transition: color 0.25s;
+}
+a:hover { color: #5fcfff; }
+
+/* Class selectors with display:flex/grid/etc. would otherwise win over the
+   `hidden` attribute's user-agent display:none. Restore the expected
+   behaviour so JS toggling element.hidden actually hides it. */
+[hidden] { display: none !important; }
+
+/* ── 2. KEYFRAME LIBRARY ──────────────────────────────────── */
+
+@keyframes title-pulse {
+  0%, 100% { text-shadow:
+    0 0 10px #39ff14,
+    0 0 30px rgba(57,255,20,0.5),
+    2px 2px 0 #5fcfff,
+    -1px -1px 0 rgba(0,212,224,0.6); }
+  50% { text-shadow:
+    0 0 20px #39ff14,
+    0 0 60px rgba(57,255,20,0.7),
+    3px 3px 0 #5fcfff,
+    -2px -2px 0 rgba(0,212,224,0.8),
+    0 0 100px rgba(57,255,20,0.2); }
+}
+@keyframes hud-glow {
+  0%, 100% { opacity: 1; }
+  50%       { opacity: 0.7; }
+}
+@keyframes scanline-sweep {
+  0%   { top: 0%; opacity: 0.6; }
+  100% { top: 100%; opacity: 0; }
+}
+@keyframes led-pulse {
+  0%, 100% { box-shadow: 0 0 4px #39ff8a, 0 0 10px #39ff8a; opacity: 1; }
+  50%       { box-shadow: 0 0 2px #39ff8a; opacity: 0.5; }
+}
+@keyframes capture-ring {
+  0%   { box-shadow: 0 0 0 0 rgba(57,255,20,0.6), 0 0 20px rgba(57,255,20,0.4); }
+  100% { box-shadow: 0 0 0 12px rgba(57,255,20,0), 0 0 20px rgba(57,255,20,0.4); }
+}
+@keyframes status-blink {
+  0%, 100% { border-left-color: #f0c33c; }
+  50%       { border-left-color: rgba(240,195,60,0.3); }
+}
+@keyframes random-shimmer {
+  0%, 100% { background-position: 0% 50%; }
+  50%       { background-position: 100% 50%; }
+}
+
+/* ── 3. LAYOUT ────────────────────────────────────────────── */
+
+/* No scroll — everything floats over the full-viewport globe. */
+html, body { overflow: hidden; }
+
+.space-container {
+  position: fixed;
+  inset: 0;
+  z-index: 10;
+  /* The container itself doesn't catch clicks — only its child panels do.
+     This lets clicks pass through empty space to the globe behind. */
+  pointer-events: none;
+}
+.space-container > * { pointer-events: auto; }
+/* Header is plain text — let clicks fall through it too. */
+.space-header { pointer-events: none; }
+.space-header a { pointer-events: auto; }
+
+/* ── 5. HOME LINK ─────────────────────────────────────────── */
+
+.home-link {
+  position: fixed;
+  top: 16px;
+  left: 16px;
+  z-index: 100;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 14px;
+  background: rgba(2,16,10,0.8);
+  border: 1px solid rgba(57,255,20,0.35);
+  color: rgba(57,255,20,0.85);
+  font-size: 13px;
+  letter-spacing: 0.5px;
+  clip-path: polygon(0 0, calc(100% - 8px) 0, 100% 8px, 100% 100%, 8px 100%, 0 calc(100% - 8px));
+  transition: background 0.2s, color 0.2s, border-color 0.2s;
+}
+.home-link:hover {
+  background: rgba(57,255,20,0.12);
+  border-color: rgb(57,255,20);
+  color: #fff;
+}
+
+/* ── 6. HEADER ────────────────────────────────────────────── */
+
+.space-header {
+  position: fixed;
+  top: 24px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 50;
+  text-align: center;
+  /* Don't constrain — let the title size itself */
+  max-width: min(720px, 90vw);
+  transition: opacity 0.6s ease, transform 0.6s ease;
+}
+/* Header is only meant for the empty-state landing view. Once the user
+   locks a target or zooms in, fade it out so it stops competing with
+   the controls and the captured imagery. */
+.space-header.dismissed {
+  opacity: 0;
+  transform: translate(-50%, -16px);
+  pointer-events: none;
+}
+
+.header-badge {
+  display: inline-block;
+  padding: 4px 12px;
+  margin-bottom: 14px;
+  background: rgba(95,207,255,0.12);
+  border: 1px solid rgba(95,207,255,0.55);
+  color: #5fcfff;
+  font-family: 'Consolas', 'Courier New', monospace;
+  font-size: 11px;
+  font-weight: bold;
+  letter-spacing: 3px;
+  text-transform: uppercase;
+  clip-path: polygon(8px 0, 100% 0, calc(100% - 8px) 100%, 0 100%);
+}
+
+.title-glow {
+  font-family: Tahoma, sans-serif;
+  font-size: clamp(28px, 5vw, 52px);
+  font-weight: bold;
+  letter-spacing: 6px;
+  color: rgb(57,255,20);
+  text-transform: uppercase;
+  animation: title-pulse 3.5s ease-in-out infinite;
+  line-height: 1.1;
+}
+
+.subtitle {
+  margin-top: 12px;
+  color: #88a890;
+  font-family: 'Consolas', 'Courier New', monospace;
+  font-size: 13px;
+  letter-spacing: 0.5px;
+}
+
+/* ── 7. GLOBE SECTION ─────────────────────────────────────── */
+
+/* Full-viewport globe canvas — sits behind everything as the visual core. */
+#globe-container.globe-section {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  background: radial-gradient(ellipse at 50% 50%, #06200f 0%, #02100a 80%);
+}
+
+/* HUD overlays — fixed in viewport corners, floating over the globe. */
+.globe-overlay-tl,
+.globe-overlay-bl {
+  position: fixed;
+  z-index: 50;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  padding: 8px 14px;
+  background: rgba(2,16,10,0.72);
+  border: 1px solid rgba(57,255,20,0.3);
+  pointer-events: none;
+  -webkit-backdrop-filter: blur(4px);
+  backdrop-filter: blur(4px);
+}
+.globe-overlay-tl {
+  top: 24px; right: 24px;
+  min-width: 200px;
+  clip-path: polygon(0 0, 100% 0, 100% calc(100% - 8px), calc(100% - 8px) 100%, 0 100%);
+}
+.globe-overlay-bl {
+  top: 86px; right: 24px;
+  min-width: 200px;
+  clip-path: polygon(0 0, calc(100% - 8px) 0, 100% 8px, 100% 100%, 0 100%);
+}
+
+.hud-label {
+  font-family: 'Consolas', 'Courier New', monospace;
+  font-size: 9px;
+  letter-spacing: 2px;
+  color: rgba(57,255,20,0.55);
+  text-transform: uppercase;
+}
+
+.hud-value {
+  font-family: 'Consolas', 'Courier New', monospace;
+  font-size: 13px;
+  color: rgb(57,255,20);
+  animation: hud-glow 2.8s ease-in-out infinite;
+  white-space: nowrap;
+}
+
+/* Hint sits inside the header — small instruction line under the title. */
+.globe-hint {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 14px;
+  padding: 5px 14px;
+  background: rgba(2,16,10,0.7);
+  border: 1px solid rgba(57,255,20,0.2);
+  color: rgba(170,210,180,0.85);
+  font-family: 'Consolas', 'Courier New', monospace;
+  font-size: 11px;
+  letter-spacing: 0.5px;
+  pointer-events: none;
+}
+.globe-hint i { color: rgba(57,255,20,0.7); }
+.globe-hint.hidden {
+  opacity: 0;
+  transition: opacity 0.6s ease;
+  pointer-events: none;
+}
+
+/* DOM-based city labels — globe.gl positions these via CSS3D transforms.
+   Inherit the page's font so all Unicode renders correctly, and bind
+   per-element click so the user lands exactly on the city's coords. */
+.globe-city-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 2px 7px 2px 4px;
+  background: rgba(2,16,10,0.55);
+  border: 1px solid rgba(57,255,20,0.18);
+  border-radius: 2px;
+  font-family: 'Consolas', 'Courier New', monospace;
+  font-size: 10px;
+  letter-spacing: 0.3px;
+  color: rgba(232,255,220,0.85);
+  white-space: nowrap;
+  cursor: pointer;
+  user-select: none;
+  pointer-events: auto;
+  transition: transform 0.15s ease, background 0.15s ease, color 0.15s ease,
+              border-color 0.15s ease, box-shadow 0.15s ease;
+  /* CSS3D transforms can pixel-align poorly without these */
+  -webkit-font-smoothing: antialiased;
+  backface-visibility: hidden;
+}
+.globe-city-label:hover {
+  background: rgba(57,255,20,0.25);
+  border-color: rgb(57,255,20);
+  color: #fff;
+  transform: scale(1.25);
+  z-index: 100;
+  box-shadow: 0 0 12px rgba(57,255,20,0.5);
+}
+.globe-city-label .city-dot {
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background: rgb(57,255,20);
+  flex-shrink: 0;
+  box-shadow: 0 0 5px rgba(57,255,20,0.7);
+}
+.globe-city-label:hover .city-dot {
+  background: #5fcfff;
+  box-shadow: 0 0 6px rgba(95,207,255,0.8);
+}
+
+/* When the user has zoomed in close, labels become decorative-only so
+   clicks pass through to the globe sphere underneath. Lets the user lock
+   target on any pixel inside a city, not just the empty sea. */
+body.globe-close-zoom .globe-city-label {
+  pointer-events: none;
+}
+
+/* ── 8. CONTROLS ──────────────────────────────────────────── */
+
+.controls {
+  position: fixed;
+  right: 24px;
+  bottom: 24px;
+  z-index: 40;
+  width: 420px;
+  max-width: calc(100vw - 48px);
+  /* Extra horizontal padding so the slider thumb (18 px diameter + glow) at
+     either end of travel doesn't get cut by the panel's clip-path corners. */
+  padding: 24px 28px;
+  background: rgba(5,20,12,0.92);
+  border: 1px solid rgba(57,255,20,0.2);
+  border-top: 2px solid rgba(57,255,20,0.5);
+  box-shadow: 0 8px 32px rgba(0,0,0,0.5), 0 0 24px rgba(57,255,20,0.08);
+  clip-path: polygon(0 0, calc(100% - 16px) 0, 100% 16px, 100% 100%, 16px 100%, 0 calc(100% - 16px));
+  -webkit-backdrop-filter: blur(6px);
+  backdrop-filter: blur(6px);
+  transition: opacity 0.3s ease, transform 0.3s ease;
+}
+.controls.collapsed {
+  opacity: 0;
+  transform: translateY(20px);
+  pointer-events: none;
+}
+.controls::before {
+  content: 'SYS://INPUT_TERMINAL';
+  position: absolute;
+  top: -1px; left: 20px;
+  padding: 0 8px;
+  background: rgba(5,20,12,0.9);
+  color: rgba(57,255,20,0.45);
+  font-family: 'Consolas', 'Courier New', monospace;
+  font-size: 9px;
+  letter-spacing: 2px;
+}
+
+.controls-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 14px 16px;
+}
+.field-wide,
+.controls-grid .presets,
+.controls-grid .actions {
+  grid-column: 1 / -1;
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  font-size: 13px;
+}
+
+.field-wide {
+  grid-column: 1 / -1;
+}
+
+.field label {
+  color: rgba(170,210,180,0.8);
+  font-family: 'Consolas', 'Courier New', monospace;
+  font-size: 11px;
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+}
+
+.field input[type='number'] {
+  /* Fill the grid column. Without explicit width, browsers use a fixed
+     default (~150 px) that overflows the column on the right card. */
+  width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
+  padding: 9px 12px;
+  background: rgba(0,0,0,0.55);
+  border: 1px solid rgba(57,255,20,0.25);
+  border-bottom: 2px solid rgba(57,255,20,0.35);
+  color: rgb(57,255,20);
+  font-family: 'Consolas', 'Courier New', monospace;
+  font-size: 14px;
+  letter-spacing: 1px;
+  outline: none;
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+.field input[type='number']:focus {
+  border-color: rgb(57,255,20);
+  box-shadow: 0 0 0 2px rgba(57,255,20,0.18), 0 0 12px rgba(57,255,20,0.12);
+}
+.field input[type='number']::placeholder {
+  color: rgba(57,255,20,0.3);
+}
+
+/* Range slider — full custom */
+.field input[type='range'] {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 100%;
+  height: 6px;
+  background: transparent;
+  outline: none;
+}
+.field input[type='range']::-webkit-slider-runnable-track {
+  height: 6px;
+  background: linear-gradient(to right, rgb(57,255,20) 0%, rgba(57,255,20,0.3) 100%);
+  border-radius: 3px;
+  box-shadow: 0 0 6px rgba(57,255,20,0.4);
+}
+.field input[type='range']::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 18px; height: 18px;
+  margin-top: -6px;
+  background: #02100a;
+  border: 2px solid rgb(57,255,20);
+  border-radius: 50%;
+  box-shadow: 0 0 8px rgba(57,255,20,0.7);
+  cursor: pointer;
+  transition: box-shadow 0.2s;
+}
+.field input[type='range']::-webkit-slider-thumb:hover {
+  box-shadow: 0 0 14px rgba(57,255,20,0.95);
+}
+.field input[type='range']::-moz-range-track {
+  height: 6px;
+  background: linear-gradient(to right, rgb(57,255,20) 0%, rgba(57,255,20,0.3) 100%);
+  border-radius: 3px;
+  box-shadow: 0 0 6px rgba(57,255,20,0.4);
+}
+.field input[type='range']::-moz-range-thumb {
+  width: 18px; height: 18px;
+  background: #02100a;
+  border: 2px solid rgb(57,255,20);
+  border-radius: 50%;
+  box-shadow: 0 0 8px rgba(57,255,20,0.7);
+  cursor: pointer;
+}
+#radius-value {
+  color: rgb(57,255,20);
+  font-family: 'Consolas', 'Courier New', monospace;
+}
+
+/* ── 9. PRESETS ───────────────────────────────────────────── */
+
+.presets {
+  grid-column: 1 / -1;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+.presets-label {
+  font-family: 'Consolas', 'Courier New', monospace;
+  font-size: 10px;
+  letter-spacing: 2px;
+  color: rgba(170,210,180,0.6);
+  text-transform: uppercase;
+  margin-right: 4px;
+}
+.preset-btn {
+  padding: 6px 12px;
+  background: rgba(0,0,0,0.4);
+  border: 1px solid rgba(57,255,20,0.3);
+  color: rgba(57,255,20,0.8);
+  font-family: 'Consolas', 'Courier New', monospace;
+  font-size: 11px;
+  letter-spacing: 0.5px;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: background 0.2s, color 0.2s, border-color 0.2s, box-shadow 0.2s;
+}
+.preset-btn:hover {
+  background: rgba(57,255,20,0.12);
+  border-color: rgb(57,255,20);
+  color: #fff;
+  box-shadow: 0 0 8px rgba(57,255,20,0.3);
+}
+.preset-random {
+  background: linear-gradient(
+    135deg,
+    rgba(95,207,255,0.2) 0%,
+    rgba(57,255,20,0.15) 50%,
+    rgba(95,207,255,0.2) 100%
+  );
+  background-size: 200% 200%;
+  border-color: rgba(95,207,255,0.5);
+  color: #5fcfff;
+  animation: random-shimmer 3s ease infinite;
+}
+.preset-random:hover {
+  background: rgba(95,207,255,0.25);
+  border-color: #5fcfff;
+  color: #fff;
+  box-shadow: 0 0 12px rgba(95,207,255,0.5);
+}
+
+/* ── 10. ACTIONS ──────────────────────────────────────────── */
+
+.actions {
+  grid-column: 1 / -1;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 14px;
+  padding-top: 4px;
+}
+
+.capture-btn {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 13px 28px;
+  background: linear-gradient(135deg, rgba(57,255,20,0.15) 0%, rgba(0,150,160,0.2) 100%);
+  border: 1px solid rgb(57,255,20);
+  color: rgb(57,255,20);
+  font-family: 'Consolas', 'Courier New', monospace;
+  font-size: 15px;
+  font-weight: bold;
+  letter-spacing: 3px;
+  text-transform: uppercase;
+  cursor: pointer;
+  clip-path: polygon(0 0, calc(100% - 12px) 0, 100% 12px, 100% 100%, 12px 100%, 0 calc(100% - 12px));
+  transition: background 0.2s, box-shadow 0.2s, color 0.2s;
+  animation: capture-ring 2s ease-out infinite;
+}
+.capture-btn i { font-size: 16px; }
+.capture-btn:hover:not(:disabled) {
+  background: linear-gradient(135deg, rgba(57,255,20,0.3) 0%, rgba(0,180,190,0.3) 100%);
+  box-shadow: 0 0 24px rgba(57,255,20,0.5), 0 0 50px rgba(57,255,20,0.15);
+  color: #fff;
+}
+.capture-btn:active:not(:disabled) {
+  transform: scale(0.98);
+}
+.capture-btn:disabled {
+  background: rgba(20,30,40,0.6);
+  border-color: rgba(57,255,20,0.15);
+  color: rgba(57,255,20,0.25);
+  cursor: not-allowed;
+  animation: none;
+  box-shadow: none;
+}
+
+.download-link,
+.share-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 11px 20px;
+  background: transparent;
+  border: 1px solid rgba(57,255,20,0.45);
+  color: rgba(57,255,20,0.8);
+  font-family: 'Consolas', 'Courier New', monospace;
+  font-size: 13px;
+  letter-spacing: 1px;
+  clip-path: polygon(0 0, calc(100% - 8px) 0, 100% 8px, 100% 100%, 0 100%);
+  cursor: pointer;
+  transition: background 0.2s, color 0.2s, border-color 0.2s;
+}
+.download-link:hover,
+.share-btn:hover {
+  background: rgba(57,255,20,0.1);
+  border-color: rgb(57,255,20);
+  color: #fff;
+}
+.share-btn.copied {
+  background: rgba(57,255,138,0.18);
+  border-color: rgba(57,255,138,0.9);
+  color: #b0f5d0;
+}
+
+/* ── 11. STATUS + RESULT ──────────────────────────────────── */
+
+/* Result panel floats bottom-left, opposite the controls. Hidden until a
+   capture has been initiated — JS toggles a .visible class. */
+.result {
+  position: fixed;
+  left: 24px;
+  bottom: 24px;
+  z-index: 40;
+  /* Give the metadata card breathing room without overlapping the controls
+     panel (400 + 24 + 24 = 448 px reserved on the right). */
+  width: min(680px, calc(100vw - 472px));
+  max-height: calc(100vh - 48px);
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  /* Default state: not yet captured — hide the panel completely. JS adds
+     .visible after the first capture starts. */
+  opacity: 0;
+  transform: translateX(-12px);
+  pointer-events: none;
+  transition: opacity 0.4s ease, transform 0.4s ease;
+}
+.result.visible {
+  opacity: 1;
+  transform: translateX(0);
+  pointer-events: auto;
+}
+
+.status {
+  padding: 10px 16px;
+  background: rgba(2,16,10,0.85);
+  border-left: 3px solid rgba(57,255,20,0.5);
+  font-family: 'Consolas', 'Courier New', monospace;
+  font-size: 13px;
+  color: rgba(170,210,180,0.9);
+  letter-spacing: 0.3px;
+  -webkit-backdrop-filter: blur(6px);
+  backdrop-filter: blur(6px);
+}
+.status[data-kind='error'] {
+  border-left-color: #5fcfff;
+  color: #ffd0e0;
+  box-shadow: inset 0 0 20px rgba(95,207,255,0.05), 0 0 8px rgba(95,207,255,0.2);
+}
+.status[data-kind='loading'] {
+  border-left-color: #f0c33c;
+  color: #fce8a4;
+  animation: status-blink 1.2s ease-in-out infinite;
+}
+.status[data-kind='ok'] {
+  border-left-color: #39ff8a;
+  color: #b0f5d0;
+  box-shadow: inset 0 0 20px rgba(57,255,138,0.04), 0 0 8px rgba(57,255,138,0.15);
+}
+
+/* ── 12. CAPTURE DISPLAY ──────────────────────────────────── */
+
+.capture-display {
+  display: flex;
+  gap: 14px;
+  align-items: stretch;
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: hidden;
+}
+
+/* ── 13. IMAGE FRAME ──────────────────────────────────────── */
+
+.image-frame {
+  position: relative;
+  flex: 1 1 auto;
+  min-width: 0;
+  min-height: 220px;
+  background: #000;
+  border: 1px solid rgba(57,255,20,0.25);
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  -webkit-backdrop-filter: blur(2px);
+  backdrop-filter: blur(2px);
+}
+
+#result-img {
+  display: block;
+  max-width: 100%;
+  height: auto;
+  cursor: zoom-in;
+}
+
+/* Tap-to-zoom: the image promotes itself to a full-viewport overlay.
+   On mobile, with the image dominating the viewport and the page
+   allowing pinch (no user-scalable=no in the meta viewport), native
+   pinch-zoom takes over for further detail. Tap or Escape to close. */
+#result-img.zoomed {
+  position: fixed;
+  inset: 0;
+  width: 100vw;
+  height: 100dvh;
+  max-width: none;
+  max-height: none;
+  object-fit: contain;
+  z-index: 200;
+  background: rgba(0, 0, 0, 0.96);
+  cursor: zoom-out;
+  /* Keep the image on a layer of its own so the corner markers and
+     scanline behind don't leak through. */
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-user-drag: none;
+}
+
+/* Corner markers */
+.corner-marker {
+  position: absolute;
+  width: 18px;
+  height: 18px;
+  z-index: 2;
+  pointer-events: none;
+}
+.corner-marker.tl { top: 6px;    left: 6px;    border-top: 2px solid rgb(57,255,20); border-left:  2px solid rgb(57,255,20); }
+.corner-marker.tr { top: 6px;    right: 6px;   border-top: 2px solid rgb(57,255,20); border-right: 2px solid rgb(57,255,20); }
+.corner-marker.bl { bottom: 6px; left: 6px;    border-bottom: 2px solid rgb(57,255,20); border-left:  2px solid rgb(57,255,20); }
+.corner-marker.br { bottom: 6px; right: 6px;   border-bottom: 2px solid rgb(57,255,20); border-right: 2px solid rgb(57,255,20); }
+
+/* Scanline sweep */
+.scanline {
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: linear-gradient(to right, transparent, rgba(57,255,20,0.45), transparent);
+  z-index: 3;
+  pointer-events: none;
+  animation: scanline-sweep 5s linear infinite;
+}
+
+/* ── 14. METADATA CARD ────────────────────────────────────── */
+
+.metadata-card {
+  /* Size to content within reasonable bounds — long values like
+     "Astronomical twilight · 12.3° below" used to get cut at the fixed
+     220 px width. Image frame absorbs whatever space is left over. */
+  flex: 0 1 auto;
+  min-width: 220px;
+  max-width: 340px;
+  background: rgba(2,16,10,0.9);
+  border: 1px solid rgba(57,255,20,0.2);
+  border-top: 2px solid rgba(57,255,138,0.6);
+  clip-path: polygon(0 0, calc(100% - 12px) 0, 100% 12px, 100% 100%, 0 100%);
+  -webkit-backdrop-filter: blur(6px);
+  backdrop-filter: blur(6px);
+}
+
+.metadata-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 14px;
+  background: rgba(57,255,138,0.06);
+  border-bottom: 1px solid rgba(57,255,138,0.2);
+}
+
+.metadata-title {
+  font-family: 'Consolas', 'Courier New', monospace;
+  font-size: 10px;
+  letter-spacing: 2.5px;
+  color: rgba(57,255,138,0.8);
+  text-transform: uppercase;
+}
+
+.metadata-led {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #39ff8a;
+  animation: led-pulse 1.8s ease-in-out infinite;
+}
+
+.metadata-list {
+  padding: 8px 0;
+}
+
+.metadata-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 8px;
+  padding: 7px 14px;
+  border-bottom: 1px solid rgba(57,255,20,0.06);
+}
+.metadata-row:last-child { border-bottom: none; }
+
+.metadata-row dt {
+  font-family: 'Consolas', 'Courier New', monospace;
+  font-size: 10px;
+  letter-spacing: 0.5px;
+  color: rgba(170,210,180,0.5);
+  text-transform: uppercase;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.metadata-row dd {
+  font-family: 'Consolas', 'Courier New', monospace;
+  font-size: 12px;
+  color: rgb(57,255,20);
+  text-align: right;
+  /* Wrap long values at word boundaries (and only break inside a word as
+     a fallback) instead of mid-character — much nicer for things like
+     "Sentinel-2 (ESA) + Landsat". */
+  overflow-wrap: anywhere;
+  word-break: normal;
+}
+
+/* Small "?" affordance next to certain metadata labels. Click opens
+   .info-popup with a short explanation that references the current
+   target. */
+.info-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 13px;
+  height: 13px;
+  margin-left: 4px;
+  padding: 0;
+  background: transparent;
+  border: 1px solid rgba(170,210,180,0.45);
+  border-radius: 50%;
+  color: rgba(170,210,180,0.7);
+  font-family: 'Consolas', 'Courier New', monospace;
+  font-size: 9px;
+  font-weight: bold;
+  line-height: 1;
+  cursor: pointer;
+  vertical-align: middle;
+  transition: color 0.15s, border-color 0.15s, box-shadow 0.15s;
+}
+.info-btn:hover,
+.info-btn:focus-visible {
+  color: rgb(57,255,20);
+  border-color: rgb(57,255,20);
+  box-shadow: 0 0 6px rgba(57,255,20,0.4);
+  outline: none;
+}
+
+.info-popup {
+  position: absolute;
+  bottom: calc(100% + 10px);
+  right: 0;
+  z-index: 60;
+  width: min(360px, calc(100vw - 64px));
+  padding: 14px 16px 12px;
+  background: rgba(2,16,10,0.96);
+  border: 1px solid rgba(57,255,20,0.45);
+  border-top: 2px solid rgb(57,255,20);
+  box-shadow: 0 -8px 28px rgba(0,0,0,0.55), 0 0 16px rgba(57,255,20,0.15);
+  font-family: Tahoma, sans-serif;
+  font-size: 12px;
+  line-height: 1.55;
+  color: rgba(232,255,220,0.92);
+}
+.info-popup h4 {
+  margin: 0 0 8px;
+  font-family: 'Consolas', 'Courier New', monospace;
+  font-size: 10px;
+  font-weight: bold;
+  letter-spacing: 2px;
+  color: rgb(57,255,20);
+  text-transform: uppercase;
+}
+.info-popup p {
+  margin: 0;
+}
+.info-popup p strong {
+  color: rgb(57,255,20);
+  font-weight: bold;
+}
+.info-popup-close {
+  position: absolute;
+  top: 4px;
+  right: 8px;
+  background: transparent;
+  border: none;
+  color: rgba(170,210,180,0.55);
+  font-size: 16px;
+  line-height: 1;
+  padding: 2px 6px;
+  cursor: pointer;
+}
+.info-popup-close:hover { color: #5fcfff; }
+
+/* ── 14a. RESULT-PANEL ACTIONS (MOBILE) ───────────────────── */
+
+/* Mobile-only docked toolbar at the bottom-right. JS appends the
+   existing Download, Share, and INPUT-reopen buttons here on
+   phone-width viewports so they all sit as standalone pills in one
+   row, sharing the same baseline. The container itself has no
+   chrome — each child is a self-contained pill. Empty on desktop
+   (the buttons stay in .actions / their corner-anchored positions). */
+.result-actions {
+  position: fixed;
+  z-index: 35;
+  bottom: 12px;
+  right: 12px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.result-actions:empty {
+  display: none;
+}
+
+/* Inside .result-actions the Download and Share buttons should look
+   like the INPUT pill (.panel-reopen) — solid dark fill, blur, smaller
+   padding/text — instead of the larger ghost-button look they have
+   inside the desktop controls panel. */
+.result-actions .download-link,
+.result-actions .share-btn {
+  padding: 9px 14px;
+  background: rgba(2,16,10,0.88);
+  border-color: rgba(57,255,20,0.5);
+  color: rgb(57,255,20);
+  font-size: 11px;
+  font-weight: bold;
+  letter-spacing: 1.2px;
+  text-transform: uppercase;
+  -webkit-backdrop-filter: blur(4px);
+  backdrop-filter: blur(4px);
+}
+.result-actions .download-link:hover,
+.result-actions .share-btn:hover {
+  background: rgba(57,255,20,0.15);
+  color: #fff;
+}
+/* Preserve the 'Copied!' green flash; flex-row sibling change can't
+   alter the .copied class which is set/cleared in JS. */
+.result-actions .share-btn.copied {
+  background: rgba(57,255,138,0.18);
+  border-color: rgba(57,255,138,0.9);
+  color: #b0f5d0;
+}
+
+/* INPUT pill is now a flex sibling inside .result-actions, not a
+   free-floating fixed-corner element — drop the corner anchor so it
+   flows in the row. The base .panel-reopen styles (padding, clip-path,
+   blur, etc.) are kept. */
+.result-actions .panel-reopen-controls {
+  position: static;
+  right: auto;
+  bottom: auto;
+}
+
+/* ── 14b. CAPTURE HISTORY ─────────────────────────────────── */
+
+.capture-history {
+  flex: 0 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 8px 10px;
+  background: rgba(2,16,10,0.78);
+  border: 1px solid rgba(57,255,20,0.18);
+  -webkit-backdrop-filter: blur(4px);
+  backdrop-filter: blur(4px);
+}
+
+.capture-history .history-label {
+  font-family: 'Consolas', 'Courier New', monospace;
+  font-size: 9px;
+  letter-spacing: 2px;
+  color: rgba(57,255,138,0.55);
+  text-transform: uppercase;
+}
+
+.capture-history .history-strip {
+  display: flex;
+  gap: 8px;
+  overflow-x: auto;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(57,255,20,0.4) transparent;
+}
+.capture-history .history-strip::-webkit-scrollbar {
+  height: 4px;
+}
+.capture-history .history-strip::-webkit-scrollbar-thumb {
+  background: rgba(57,255,20,0.4);
+}
+
+.history-item {
+  position: relative;
+  flex: 0 0 auto;
+  width: 64px;
+  height: 64px;
+  padding: 0;
+  background: rgba(0,0,0,0.6);
+  border: 1px solid rgba(57,255,20,0.3);
+  cursor: pointer;
+  overflow: hidden;
+  transition: border-color 0.15s, transform 0.15s, box-shadow 0.15s;
+}
+.history-item:hover,
+.history-item:focus-visible {
+  border-color: rgb(57,255,20);
+  box-shadow: 0 0 8px rgba(57,255,20,0.4);
+  transform: translateY(-1px);
+  outline: none;
+}
+.history-item img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.history-item-placeholder {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 100%;
+  color: rgba(57,255,20,0.35);
+  font-size: 18px;
+}
+.history-item-meta {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  padding: 2px 4px;
+  background: rgba(0,0,0,0.7);
+  color: rgba(57,255,20,0.9);
+  font-family: 'Consolas', 'Courier New', monospace;
+  font-size: 9px;
+  letter-spacing: 0.3px;
+  text-align: center;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* ── 14c. PANEL CLOSE / REOPEN ────────────────────────────── */
+
+/* Small × button used in the corner of the closeable panels and inside
+   the metadata-card header. The metadata variant inherits this base and
+   overrides position to inline-flex so it sits in the header row. */
+.panel-close {
+  position: absolute;
+  top: 8px;
+  right: 14px;
+  z-index: 5;
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  background: transparent;
+  border: 1px solid rgba(57,255,20,0.25);
+  color: rgba(57,255,20,0.7);
+  font-family: 'Consolas', 'Courier New', monospace;
+  font-size: 14px;
+  line-height: 1;
+  cursor: pointer;
+  border-radius: 2px;
+  transition: color 0.15s, border-color 0.15s, background 0.15s, box-shadow 0.15s;
+}
+.panel-close:hover,
+.panel-close:focus-visible {
+  color: #5fcfff;
+  border-color: rgba(95,207,255,0.7);
+  background: rgba(95,207,255,0.08);
+  box-shadow: 0 0 6px rgba(95,207,255,0.3);
+  outline: none;
+}
+
+/* Metadata-card close: lives inside the header flex row, not absolute. */
+.metadata-header-right {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.panel-close.metadata-close {
+  position: static;
+  width: 18px;
+  height: 18px;
+  font-size: 12px;
+}
+
+/* The result panel reuses .visible (its existing reveal state) for
+   collapse — closing simply removes .visible. The reopen pill below
+   takes care of restoring it. The .panel-reopen rule sits in fixed
+   viewport corners so it shows up exactly where the panel was. */
+.panel-reopen {
+  position: fixed;
+  z-index: 35;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 9px 14px;
+  background: rgba(2,16,10,0.88);
+  border: 1px solid rgba(57,255,20,0.5);
+  color: rgb(57,255,20);
+  font-family: 'Consolas', 'Courier New', monospace;
+  font-size: 11px;
+  font-weight: bold;
+  letter-spacing: 1.8px;
+  text-transform: uppercase;
+  cursor: pointer;
+  clip-path: polygon(0 0, calc(100% - 8px) 0, 100% 8px, 100% 100%, 0 100%);
+  -webkit-backdrop-filter: blur(4px);
+  backdrop-filter: blur(4px);
+  transition: background 0.2s, color 0.2s, border-color 0.2s, box-shadow 0.2s;
+}
+.panel-reopen:hover,
+.panel-reopen:focus-visible {
+  background: rgba(57,255,20,0.15);
+  color: #fff;
+  border-color: rgb(57,255,20);
+  box-shadow: 0 0 12px rgba(57,255,20,0.35);
+  outline: none;
+}
+.panel-reopen i { font-size: 12px; }
+
+.panel-reopen-controls { right: 24px; bottom: 24px; }
+.panel-reopen-result   { left: 24px;  bottom: 24px; }
+
+/* Inline pill that surfaces inside the result panel when the metadata
+   card has been hidden. Click reopens the card. */
+.metadata-toggle-tab {
+  align-self: flex-start;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  background: rgba(2,16,10,0.85);
+  border: 1px solid rgba(57,255,138,0.45);
+  color: rgba(57,255,138,0.85);
+  font-family: 'Consolas', 'Courier New', monospace;
+  font-size: 10px;
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+  cursor: pointer;
+  clip-path: polygon(0 0, calc(100% - 8px) 0, 100% 8px, 100% 100%, 0 100%);
+  transition: background 0.15s, color 0.15s, border-color 0.15s;
+}
+.metadata-toggle-tab:hover,
+.metadata-toggle-tab:focus-visible {
+  background: rgba(57,255,138,0.12);
+  color: #fff;
+  border-color: rgb(57,255,138);
+  outline: none;
+}
+
+/* ── 15. FOOTER ───────────────────────────────────────────── */
+
+.space-footer {
+  position: fixed;
+  bottom: 8px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 30;
+  text-align: center;
+  font-family: 'Consolas', 'Courier New', monospace;
+  font-size: 10px;
+  color: rgba(122,152,167,0.55);
+  letter-spacing: 0.3px;
+  pointer-events: none;
+}
+.space-footer a { color: rgba(57,255,20,0.55); pointer-events: auto; }
+.space-footer a:hover { color: #5fcfff; }
+
+/* ── 16. RESPONSIVE ───────────────────────────────────────── */
+
+@media (max-width: 1080px) {
+  /* On narrower screens the bottom-left result panel and bottom-right
+     controls panel collide. Stack them: result on top, controls below. */
+  .controls {
+    width: min(420px, calc(100vw - 32px));
+    right: 16px;
+    bottom: 16px;
+  }
+  .result {
+    width: min(560px, calc(100vw - 32px));
+    left: 16px;
+    bottom: calc(40vh + 16px);
+  }
+}
+
+@media (max-width: 720px) {
+  /* Mobile layout strategy: controls and result are full-width sheets that
+     dock to opposite edges of the viewport, each with its own internal
+     scroll. JS default-collapses the controls panel on init, so the globe
+     fills the viewport on first paint — the user reopens via the INPUT
+     pill in the bottom-right corner. dvh (dynamic viewport height) keeps
+     these heights honest as iOS Safari grows/shrinks its URL bar. */
+  .controls {
+    /* Anchor both sides so the panel centers itself on phone-width
+       viewports. `width: auto` + symmetric inset works regardless of
+       the desktop rule's `max-width: calc(100vw - 48px)`, which used
+       to clamp the panel narrower than its width and leave it visibly
+       off-center under the right-anchored layout. */
+    left: 12px;
+    right: 12px;
+    bottom: 12px;
+    width: auto;
+    max-width: none;
+    /* Cap to ~70% of the visible viewport so even a fully-open controls
+       sheet leaves the globe partially visible for orientation. */
+    max-height: 70dvh;
+    overflow-y: auto;
+    /* 44 px of top padding so the close × (top:8 + 32 px on touch) sits
+       in its own band above the content. Otherwise the × overlaps the
+       radius slider track once lat/lon collapse out of the way. */
+    padding: 44px 20px 18px;
+    -webkit-overflow-scrolling: touch;
+  }
+  /* SYS://INPUT_TERMINAL ribbon protruding above the panel edge reads as
+     decorative noise on a small screen, especially next to the close ×.
+     Drop it on mobile — the panel's purpose is obvious from context. */
+  .controls::before {
+    display: none;
+  }
+  .result {
+    /* Match controls' symmetric inset so result also centers cleanly. */
+    left: 12px;
+    right: 12px;
+    bottom: auto;
+    /* Start below the Home button (top:12 + ~32 px tall) so the status
+       text inside the result panel doesn't get hidden behind it. */
+    top: 56px;
+    width: auto;
+    max-width: none;
+    /* The capture flow on mobile collapses the controls panel, so the
+       result can use most of the viewport. 124 = 56 top offset + ~60
+       at the bottom (Download/Share/INPUT pills + breathing room). */
+    max-height: calc(100dvh - 124px);
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+  /* Reopen pills sit in the corners the panel they restore would dock to. */
+  .panel-reopen-controls {
+    right: 12px;
+    bottom: 12px;
+  }
+  /* DATA pill sits bottom-left on mobile, mirroring the INPUT pill at
+     bottom-right. Top-left would overlap the fixed Home button. */
+  .panel-reopen-result {
+    left: 12px;
+    bottom: 12px;
+    top: auto;
+  }
+  /* The result panel's close × sits over the .status strip (~36 px
+     tall). On touch (32×32) at the default top:8 it overflows into
+     the 12 px gap below the status. Pull it up + tighten the right
+     inset, and pad .status on the right so its message text doesn't
+     run under the ×. */
+  .result > .panel-close {
+    top: 2px;
+    right: 8px;
+  }
+  .status {
+    padding-right: 48px;
+  }
+  .controls-grid {
+    grid-template-columns: 1fr;
+  }
+  /* Once the user has locked a target (via city label, preset, history
+     replay, or sphere click), drop the lat/lon text inputs on mobile.
+     The fields are populated already and the sheet stays shorter, so
+     radius + CAPTURE come up first. JS toggles the body class in
+     setTarget(). The radius field has .field-wide so it survives. */
+  body.target-locked .controls .field:not(.field-wide) {
+    display: none;
+  }
+  .capture-display {
+    flex-direction: column;
+  }
+  .metadata-card {
+    flex: 1 1 auto;
+    width: 100%;
+    max-width: none;
+    clip-path: none;
+  }
+  /* HUD overlays compete with the panels for real estate on mobile, and
+     the same coords already live on the metadata card. Hide the HUD. */
+  .globe-overlay-tl,
+  .globe-overlay-bl {
+    display: none;
+  }
+  .title-glow {
+    font-size: clamp(18px, 5vw, 28px);
+    letter-spacing: 3px;
+  }
+  .capture-btn {
+    width: 100%;
+    justify-content: center;
+  }
+  /* Header reads as decorative on mobile; let the globe show through. */
+  .space-header {
+    top: 16px;
+    max-width: calc(100vw - 32px);
+  }
+  /* Home link is shown by the user pressing the small icon — keep
+     the tap target intact but tighten its inset. */
+  .home-link {
+    top: 12px;
+    left: 12px;
+    padding: 8px 12px;
+  }
+}
+
+/* Touch-device tweaks. Targets these via `pointer: coarse` instead of a
+   width breakpoint so a tablet (which can be wide but is touch-first) gets
+   the same finger-sized affordances as a phone. iOS HIG asks for 44 pt
+   minimum tap targets; Android Material asks for 48 dp. We aim ~32–44 px
+   on the most-tapped controls. */
+@media (pointer: coarse) {
+  /* City labels: enlarge font and padding so a finger lands cleanly on
+     the right city, not the one next to it. The dot grows too so the
+     center of mass tracks visually. */
+  .globe-city-label {
+    padding: 4px 9px 4px 6px;
+    font-size: 12px;
+  }
+  .globe-city-label .city-dot {
+    width: 6px;
+    height: 6px;
+  }
+  /* Hover scale doesn't apply on touch (no hover), so the resting state
+     should already be readable. */
+
+  /* Slider thumb — 18 px is hard to grab with a fingertip. The bigger
+     thumb pokes ~10 px above the track, so add breathing room above
+     the radius slider so its label doesn't sit under the thumb. */
+  .field-wide {
+    gap: 14px;
+  }
+  .field input[type='range'] {
+    height: 10px;
+  }
+  .field input[type='range']::-webkit-slider-runnable-track {
+    height: 8px;
+  }
+  .field input[type='range']::-webkit-slider-thumb {
+    width: 28px;
+    height: 28px;
+    margin-top: -10px;
+  }
+  .field input[type='range']::-moz-range-track {
+    height: 8px;
+  }
+  .field input[type='range']::-moz-range-thumb {
+    width: 28px;
+    height: 28px;
+  }
+
+  /* Panel close × — small and fiddly at 22 px. */
+  .panel-close {
+    width: 32px;
+    height: 32px;
+    font-size: 16px;
+  }
+  .panel-close.metadata-close {
+    width: 26px;
+    height: 26px;
+    font-size: 14px;
+  }
+
+  /* Reopen pills — primary mobile entry-point to controls and result
+     after they're collapsed. Worth a comfortable tap target. */
+  .panel-reopen {
+    padding: 12px 18px;
+    font-size: 12px;
+  }
+
+  /* Preset buttons + metadata toggle. */
+  .preset-btn {
+    padding: 9px 14px;
+    font-size: 12px;
+  }
+  .metadata-toggle-tab {
+    padding: 9px 14px;
+    font-size: 11px;
+  }
+
+  /* Info "?" button next to metadata labels — 13 px is below tap-target
+     guidelines but not hugely critical (rarely tapped). Bump anyway. */
+  .info-btn {
+    width: 18px;
+    height: 18px;
+    font-size: 11px;
+  }
+
+  /* History thumbnails — 64 × 64 is fine, but enlarge slightly so the
+     edge-to-edge tap region grows past the visible border. */
+  .history-item {
+    width: 72px;
+    height: 72px;
+  }
+}
+
+@media (max-width: 420px) {
+  .title-glow {
+    font-size: 18px;
+    letter-spacing: 2px;
+  }
+  .header-badge {
+    font-size: 9px;
+    letter-spacing: 2px;
+  }
+  .globe-hint {
+    font-size: 9px;
+    padding: 3px 8px;
+  }
+  .space-footer {
+    display: none;
+  }
+}
+
+/* ── 17. REDUCED MOTION ───────────────────────────────────── */
+
+@media (prefers-reduced-motion: reduce) {
+  .title-glow {
+    animation: none;
+    text-shadow: 0 0 10px rgba(57,255,20,0.4);
+  }
+  .capture-btn {
+    animation: none;
+    box-shadow: 0 0 10px rgba(57,255,20,0.2);
+  }
+  .scanline {
+    animation: none;
+    opacity: 0;
+  }
+  .status[data-kind='loading'] {
+    animation: none;
+  }
+  .preset-random {
+    animation: none;
+  }
+  .hud-value {
+    animation: none;
+  }
+  .metadata-led {
+    animation: none;
+    box-shadow: 0 0 4px #39ff8a;
+  }
+}

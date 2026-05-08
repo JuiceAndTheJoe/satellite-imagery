@@ -1,0 +1,8 @@
+node_modules/
+.DS_Store
+*.log
+
+# Worker local state — already covered by worker/.gitignore but listing
+# here for safety in case someone runs wrangler from the repo root.
+worker/.wrangler/
+worker/.dev.vars
