@@ -41,7 +41,10 @@ const TILE_PROXY_BASE = `${PROXY_BASE}/tile`;
 // and the tile-engine URL builder consults it before falling through to
 // the Worker. This keeps the most common viewing patterns
 // (city-click → close-zoom) entirely off the Mapbox/KV path.
-const TILE_LOCAL_BASE = '/tiles';
+// Relative (no leading slash) so this works under both root-served and
+// subpath-served hosting (OSC's MinIO static publish puts the site under
+// /<sitename>/, so `/tiles/...` would resolve to the wrong place).
+const TILE_LOCAL_BASE = 'tiles';
 const TILE_MANIFEST_URL = `${TILE_LOCAL_BASE}/manifest.json`;
 let LOCAL_TILES = null; // populated after manifest fetch — see initGlobe.
 async function loadTileManifest() {
