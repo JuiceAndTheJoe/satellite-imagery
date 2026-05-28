@@ -8,14 +8,13 @@
 // ---------------------------------------------------------------------------
 const PROXY_BASE = 'https://satellite-imagery-proxy.esvela02.workers.dev';
 
-// Cloudflare Turnstile sitekey (public). Paste the sitekey from your
-// Turnstile site here to gate CAPTURE behind a (usually invisible) bot
-// challenge. Leave as the empty string to disable the gate. The matching
-// secret key must be set as TURNSTILE_SECRET on the Worker:
+// Cloudflare Turnstile sitekey (public). Gates CAPTURE behind a Managed
+// widget — Cloudflare runs a silent challenge on render and only shows a
+// checkbox if the visitor looks suspect. Leave as the empty string to
+// disable the gate. The matching secret key must be set as
+// TURNSTILE_SECRET on the Worker:
 //   wrangler secret put TURNSTILE_SECRET
-// Use widget mode "Invisible" in the Cloudflare dashboard so most users
-// never see a checkbox.
-const TURNSTILE_SITEKEY = '';
+const TURNSTILE_SITEKEY = '0x4AAAAAADXsGFG5XdxAZf-V';
 
 const DEFAULT_LAT = 59.349800;
 const DEFAULT_LON = 18.070700;
@@ -429,7 +428,12 @@ function initTurnstile() {
     if (!el || !window.turnstile) return;
     turnstileWidgetId = window.turnstile.render(el, {
       sitekey: TURNSTILE_SITEKEY,
-      size: 'invisible',
+      size: 'flexible',
+      // Managed mode: Cloudflare runs a silent challenge on render and
+      // only surfaces the checkbox if the visitor needs to interact.
+      // interaction-only keeps the widget UI invisible until then, so
+      // the typical CAPTURE click stays one-tap.
+      appearance: 'interaction-only',
       callback: (tok) => { turnstileToken = tok; },
       'error-callback': () => { turnstileToken = null; },
       'expired-callback': () => { turnstileToken = null; },
