@@ -25,6 +25,7 @@
 //     average while writes drop ~Nx.
 
 const ALLOWED_ORIGINS = new Set([
+  'https://satellite.apps.osaas.io',
   'https://team2-satelliteimagery.eyevinn-web-runner.auto.prod.osaas.io',
   'https://3288ab1a9f.apps.osaas.io',
   'http://localhost:8080',
